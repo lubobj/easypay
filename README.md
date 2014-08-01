@@ -1,4 +1,4 @@
 easypay
 =======
 
-this is project for easypay
+init this project.
