@@ -96,7 +96,9 @@ unsigned char* pData = NULL;
 //int main(void)
 int  generator_qrcode_to_bmp(int out)
 {
-char*			szSourceSring = QRCODE_TEXT;
+//char*			szSourceString = QRCODE_TEXT;
+char szQrcodeString[1024] = {0};
+char*			szSourceString;
 unsigned int	unWidth, x, y, l, n, unWidthAdjusted, unDataBytes;
 unsigned char*	pRGBData, *pSourceData, *pDestData;
 QRcode*			pQRC;
@@ -133,10 +135,13 @@ int logo_bmpWidth,logo_bmpHeight;
  * @throw ENOMEM unable to allocate memory for input objects.
  * @throw ERANGE input data is too large.
  */
+/* print the qr code from alipay */
+alipay_main(szQrcodeString);
+szSourceString = szQrcodeString;
 
 		// Compute QRCode
 
-	if (pQRC = QRcode_encodeString(szSourceSring, 0, QR_ECLEVEL_H, QR_MODE_8, 1))
+	if (pQRC = QRcode_encodeString(szSourceString, 0, QR_ECLEVEL_H, QR_MODE_8, 1))
 		{
 		unWidth = pQRC->width;
 		unWidthAdjusted = unWidth * OUT_FILE_PIXEL_PRESCALER * 3;

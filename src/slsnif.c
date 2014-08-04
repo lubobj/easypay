@@ -833,7 +833,7 @@ int main(int argc, char *argv[]) {
                 baudstr[0] ? baudstr : "9600",
                 baudstr[0] ? "" : " (default)");
 
-    gsm_handle  = libgmsd_tool_main();
+    gsm_handle  = (struct lgsm_handle *) libgmsd_tool_main();
 	if(gsm_handle!=NULL){
     	shell_main(gsm_handle, 0);
     	if(!gsm_handle)
