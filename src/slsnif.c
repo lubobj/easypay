@@ -583,7 +583,7 @@ int main(int argc, char *argv[]) {
     #endif
     char price[16]= {0};
 
-    struct lgsm_handle *gsm_handle =NULL;
+    //struct lgsm_handle *gsm_handle =NULL;
     int gsm_fd =0;
     int rc;
     char gsm_buf[1024+1];
@@ -875,7 +875,7 @@ int main(int argc, char *argv[]) {
     printf("Baudrate is set to %s baud%s.\n",
                 baudstr[0] ? baudstr : "9600",
                 baudstr[0] ? "" : " (default)");
-
+/*
     gsm_handle  = (struct lgsm_handle *) libgmsd_tool_main();
 	if(gsm_handle!=NULL){
     	shell_main(gsm_handle, 0);
@@ -887,6 +887,7 @@ int main(int argc, char *argv[]) {
        		printf("gsm_fd = %d\n",gsm_fd);
     	}
 	}
+*/
     /* start listening to the slave and port */
 	if(!tty_data.using_lp){
     	maxfd = max(tty_data.portfd, tty_data.posfd);
@@ -913,7 +914,7 @@ int main(int argc, char *argv[]) {
 	    if(tty_data.using_lp)
        	    FD_SET(tty_data.posfd, &rset);
         FD_SET(tty_data.portfd, &rset);
-        FD_SET(gsm_fd, &rset);
+        //FD_SET(gsm_fd, &rset);
         if(found2)
         {
             //fixme in the furture.
@@ -960,9 +961,9 @@ int main(int argc, char *argv[]) {
         if (FD_ISSET(tty_data.portfd, &rset)) {
             /* data coming from device */
             receiveData(tty_data.portfd, tty_data.posfd);
-        }else if(FD_ISSET(gsm_fd, &rset)){
-			/* we've received something on the gsmd socket, pass it
-			 * on to the library */
+        }/*else if(FD_ISSET(gsm_fd, &rset)){
+			//we've received something on the gsmd socket, pass it
+			//on to the library 
 			rc = read(gsm_fd, gsm_buf, sizeof(gsm_buf));
 			if (rc <= 0) {
 				printf("ERROR reading from gsm_fd\n");
@@ -972,7 +973,7 @@ int main(int argc, char *argv[]) {
 			rc = lgsm_handle_packet(gsm_handle, gsm_buf, rc);
 			if (rc < 0)
 				printf("ERROR processing packet: %d(%s)\n", rc, strerror(-rc));
-        } else {
+        } */else {
 			if(!tty_data.using_lp){
             	if(FD_ISSET(tty_data.posfd, &rset)){
                 	printf("data coming from pos\n");
