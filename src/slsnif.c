@@ -24,6 +24,8 @@
 #include "slsnif.h"
 #include "qrgenerator.h"
 #include <stdbool.h>
+#include <pthread.h>
+#include "msglib.h"
 #define VERSION  "0.0.1"
 #define DEBUG 1
 unsigned int possetting[3] = {0x1b,0x3d,0x1};
@@ -538,6 +540,35 @@ static bool get_price(int menubytes, char* price)
         return price_found;
       
 }
+
+char prompt[1024];
+void* recvThread( void *param )
+{
+	    int n;
+		MsgHandle* handle = (MsgHandle*)param;
+		MSG msg;
+
+		msgTrace( handle, "recvThread is running...\n");
+    	while( (n = msgGet(handle, &msg)) != -1 )
+		{   
+				msgTrace(handle,"easypay receive message\n");
+				switch( msg.type )
+				{
+						case MSG_APP_ACTIVE:
+							strcpy( prompt, (char*)msg.data );
+							msgTrace(  handle, "msg:%s\n", prompt );
+							break;
+						case MSG_GETLINE:
+							break;
+						default:
+							msgTrace( handle, "recevied a message with wrong type!\n" );
+							break;
+																										}
+		}
+exit:
+		msgTrace(handle, "recvThread exit.\n");
+		return NULL;
+}
 int main(int argc, char *argv[]) {
 
     int             i, j, maxfd, optret, needsync = 1;
@@ -573,6 +604,10 @@ int main(int argc, char *argv[]) {
         {NULL,         0, NULL,   0}
     };
 #endif
+	MsgHandle handle;
+	pthread_t threadId;
+	int retval;
+
     /* don't lose last chunk of data when output is non-interactive */
     setvbuf(stdout,NULL,_IONBF,0);
     setvbuf(stderr,NULL,_IONBF,0);
@@ -864,6 +899,15 @@ int main(int argc, char *argv[]) {
         if(gsm_fd !=0)
             maxfd = max(maxfd,gsm_fd);
 	}
+	//pthread
+	if( msgRegister( &handle, "easypay" ) )
+	{
+		printf("easypay Register failed!\n");
+		return -1;
+	}
+	pthread_create( &threadId, NULL, recvThread, &handle );
+
+	
     while (TRUE) {
         FD_ZERO(&rset);
 	    if(tty_data.using_lp)
@@ -948,5 +992,7 @@ int main(int argc, char *argv[]) {
 		   }
         }
     }
+	pthread_join( threadId, (void**)&retval );
+	msgUnRegister( &handle, "easypay" );
     return 1;
 }
