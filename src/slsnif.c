@@ -33,7 +33,7 @@ unsigned char pos_command_gs_r[3] = {0x1d,0x72,0x1};
 pos_gs_struct  pos_gs_command1;//temp 
 pos_gs_struct  pos_gs_command2;//temp 
 static bool found2 = FALSE;
-unsigned char companyname[]={0xd3,0xaf,0xb8,0xb6,0xbd,0xdd,0xcd,0xa8,0x0a};
+unsigned char companyname[]={0xd3,0xaf,0xc8,0xf3,0xbd,0xdd,0xcd,0xa8,0x0a};
 
 void copyright() {
     printf("\n\nSerial Line Sniffer. Version %s\n", VERSION);
@@ -465,13 +465,15 @@ int get_posfd(void)
 {
     return tty_data.posfd;
 }
-static void add_qrcode_function(void)
+/*static void add_qrcode_function(void)*/
+static void add_qrcode_function(char* qr_price)
 {
         printf("%s\n",__func__);
-        generator_qrcode_to_bmp(tty_data.posfd);
+        generator_qrcode_to_bmp(tty_data.posfd, qr_price);
 }
 
-static bool get_price(int menubytes, double* price)
+/*static bool get_price(int menubytes, double* price)*/
+static bool get_price(int menubytes, char* price)
 {
         int i = 0;
         int j = 0;
@@ -526,7 +528,10 @@ static bool get_price(int menubytes, double* price)
                   
                   printf("account=%s\n",account);
                   //atof cannot work normally, use atoi
+                  #if 0
                   *price = atoi(account);
+                  #endif
+                  strcpy(price,account);
                   free(account);
                }
         }
@@ -542,7 +547,10 @@ int main(int argc, char *argv[]) {
     unsigned char pos_buffer[256];
     int n;
     bool price_is_found = false;
+    #if 0
     double price = 0;
+    #endif
+    char price[16]= {0};
 
     struct lgsm_handle *gsm_handle =NULL;
     int gsm_fd =0;
@@ -866,7 +874,7 @@ int main(int argc, char *argv[]) {
         {
             //fixme in the furture.
             found2 = false;
-            price_is_found = get_price(menu_bytes,&price);
+            price_is_found = get_price(menu_bytes,(char*)&price);
 #if 0
 			if(tty_data.using_lp){
 				memcpy(menuarray+menu_bytes,companyname,sizeof(companyname));
@@ -889,8 +897,12 @@ int main(int argc, char *argv[]) {
             menu_bytes = 0;
             if(price_is_found)
             {
+                #if 0
                 printf("price is %.2f\n",price);
                 add_qrcode_function();
+                #endif
+                printf("price is %s\n",price);
+                add_qrcode_function(price);
             }
         }
         if (select(maxfd + 1, &rset, NULL, NULL, NULL) < 0) {

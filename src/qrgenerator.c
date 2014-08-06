@@ -29,6 +29,7 @@
 #include <wchar.h>
 
 #include "qrencode.h"
+#include "aliqr.h"
 //	-------------------------------------------------------
 
 
@@ -88,13 +89,14 @@ typedef struct
 
 unsigned char *pBmpBuff;
 unsigned char* pData = NULL;
+
 //	-------------------------------------------------------
 //	Main
 //	-------------------------------------------------------
 
 //int _tmain(int argc, _TCHAR* argv[])
 //int main(void)
-int  generator_qrcode_to_bmp(int out)
+int  generator_qrcode_to_bmp(int out, char* price)
 {
 //char*			szSourceString = QRCODE_TEXT;
 char szQrcodeString[1024] = {0};
@@ -109,9 +111,17 @@ int i,j,k;
 unsigned char cutCommand[]= {0x1d,0x56,0x31,0x1d,0x72,0x01};
 unsigned char escd[]= {0x1b,0x64,0x05};
 unsigned char chinesecmd[]={0x1c,0x26};
-unsigned char companyname[]={0xd3,0xae,0xb8,0xb6,0xbd,0xdd,0xcd,0xa7};
+unsigned char companyname[]={0xd3,0xae,0xc8,0xf3,0xbd,0xdd,0xcd,0xa7};
 FILE* fd;
 int logo_bmpWidth,logo_bmpHeight;
+
+struct payInfo qrpay_info;
+strcpy(qrpay_info.imsi,"123456789012345");
+strcpy(qrpay_info.order_key,"11");
+qrpay_info.order_number = 7;
+strcpy(qrpay_info.total_fee,price); 
+strcpy(qrpay_info.order_subject,"ccc");
+strcpy(qrpay_info.order_time,"2014-08-0514:15:30");
 
 /*
  * Create a symbol from the string. The library automatically parses the input
@@ -136,7 +146,7 @@ int logo_bmpWidth,logo_bmpHeight;
  * @throw ERANGE input data is too large.
  */
 /* print the qr code from alipay */
-alipay_main(szQrcodeString);
+alipay_main(szQrcodeString, &qrpay_info);
 szSourceString = szQrcodeString;
 
 		// Compute QRCode

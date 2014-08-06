@@ -25,7 +25,7 @@
 #include "xmlparser.h"
 extern char stqrcode[];
 
-int alipay_main(char *qr_result)
+int alipay_main(char *qr_result, struct payInfo* order_info)
 {
   CURL *curl;
   CURLcode res;
@@ -49,7 +49,7 @@ int alipay_main(char *qr_result)
 
   curl = curl_easy_init();
   if(curl) {
-    alipay_precreate(https_req, &req_len);
+    alipay_precreate(https_req, &req_len, order_info);
     printf("https_req:\n%s\n, len:%d\n", https_req, req_len);
     curl_easy_setopt(curl, CURLOPT_URL, https_req);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, parseStreamCallback);
