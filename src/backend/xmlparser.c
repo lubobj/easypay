@@ -87,7 +87,6 @@ void endElement1(void *userData, const XML_Char *name)
   }
 }
 
-#if 1
 void endElement2(void *userData, const XML_Char *name)
 {
   struct ParserStruct *state = (struct ParserStruct *) userData;
@@ -101,7 +100,6 @@ void endElement2(void *userData, const XML_Char *name)
       printf("%5lu   %10lu   %s %s\n", state->depth, state->characters.size, name, state->characters.memory);
   }
 }
-#endif
 
 size_t parseStreamCallback(void *contents, size_t length, size_t nmemb, void *userp)
 {

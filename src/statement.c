@@ -1,7 +1,8 @@
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
-
 #include "statement.h"
+#include "aliqr.h"
 
 void get_ticket_number(char** ticket_number,int * ticket_length)
 {
@@ -37,8 +38,8 @@ void get_ticket_number(char** ticket_number,int * ticket_length)
     *ticket_length = length - 15;
 	   printf("here\n");
 	   memcpy(*ticket_number,buffer2+15,length-15 + 1);
-	   printf("... %s\n",buffer2);
-	   printf(".... %s\n",*ticket_number);
+	   //printf("... %s\n",buffer2);
+	   //printf(".... %s\n",*ticket_number);
 	   fclose(config);
 
 }
@@ -68,8 +69,8 @@ int get_title(char** title,int *title_size) {
 	   *title_size = length - 7;
 	   
 	   memcpy(*title,buffer+7,length-7 + 1);
-	   printf("... %s\n",buffer);
-	   printf(".... %s\n",*title);
+	   //printf("... %s\n",buffer);
+	   //printf(".... %s\n",*title);
 	   fclose(config);
 	   return strlen(buffer);
 }
@@ -99,7 +100,7 @@ int parse_file(char** gbk_name,int *gbk_size,int position, int offset) {
 	  for(i=0;i<position;i++){
 	     //continue use fgets to read.
 	  	//memset(buffer,100,'\0');
-		printf("read i=%d\n",i);
+		//printf("read i=%d\n",i);
 	  	if (fgets(buffer, 100, config) == NULL) {
 			perror ("Error reading config");
 			exit(1);
@@ -113,18 +114,18 @@ int parse_file(char** gbk_name,int *gbk_size,int position, int offset) {
 	   }
 	   
 	   length = strlen(buffer);
-	   printf("length is %d\n",length);
-	   printf("offset is %d\n",offset);
+	   //printf("length is %d\n",length);
+	   //printf("offset is %d\n",offset);
            *gbk_name = malloc(length - offset + 1);// not include offset(for example 'title: '), add 1 for \0
 	   *gbk_size = length - offset;
-           printf("gbksize is %d\n",*gbk_size);
+           //printf("gbksize is %d\n",*gbk_size);
 	   memcpy(*gbk_name,buffer+offset,*gbk_size + 1);
-	   printf("... %s\n",buffer);
-	   printf(".... %s\n",*gbk_name);
+	   //printf("... %s\n",buffer);
+	   //printf(".... %s\n",*gbk_name);
 	   fclose(config);
 	   return 0;
 }
-void WritePayment(int posfd)
+void WritePayment(int posfd, struct receipt_info *rt_detail)
 {
 	char* title = NULL;
 	unsigned char* commpany_title = NULL;
@@ -138,7 +139,7 @@ void WritePayment(int posfd)
 	unsigned char* date_title = NULL;
 	int date_size ;
 
-	char* time = NULL;
+	char* config_time = NULL;
 	unsigned char* time_title = NULL;
 	int time_size ;
 
@@ -176,6 +177,10 @@ void WritePayment(int posfd)
 	unsigned char cutCommand[]= {0x1d,0x56,0x31,0x1d,0x72,0x01};
 	unsigned char cmd1[]={0xa3,0xb1,0x0a};
         struct pos_statement_of_account testdata;
+
+        struct tm *ptr;
+        time_t td;
+        char pos_time[12];
         
 	memset(testdata.ticket_number,0,32);
 	strcpy(testdata.ticket_number,"123456789012345\n");
@@ -185,8 +190,8 @@ void WritePayment(int posfd)
         
         parse_file(&title,&title_size,1, 7);//'title: ' 
 	//get_title(&title,&title_size);
-	printf("title_size=%d\n",title_size);
-	printf("title is %s\n",title);
+	//printf("title_size=%d\n",title_size);
+	//printf("title is %s\n",title);
 	commpany_title = malloc(title_size/2+1);//add '\n' at the last
  	i=j=0;
 	for(i=0;i< title_size;)
@@ -197,7 +202,7 @@ void WritePayment(int posfd)
 		i = i+2;
 
 	}
-					//printf("j=%d\n",j);
+	//printf("j=%d\n",j);
 	commpany_title[j] = '\n';
 
 	parse_file(&ticket_number,&ticket_size,2, 15);//'ticket_number: ' 
@@ -207,7 +212,7 @@ void WritePayment(int posfd)
 	for(i=0;i< ticket_size;)
 	{
 		ticket_title[j] = ToHex(ticket_number[i]) << 4 | ToHex(ticket_number[i+1]);
-						//printf("%02x\n",commpany_title[j]);
+		//printf("%02x\n",commpany_title[j]);
 		j++;
 		i = i+2;
 
@@ -227,20 +232,19 @@ void WritePayment(int posfd)
 	}
 	date_title[j] = '\n';
 
-	parse_file(&time,&time_size,4, 6);//'time: ' 
+	parse_file(&config_time,&time_size,4, 6);//'time: ' 
 
 	time_title= malloc(time_size/2 + 1);
  	i=j=0;
 	for(i=0;i< time_size;)
 	{
-		time_title[j] = ToHex(time[i]) << 4 | ToHex(time[i+1]);
+		time_title[j] = ToHex(config_time[i]) << 4 | ToHex(config_time[i+1]);
 		j++;
 		i = i+2;
 
 	}
 	time_title[j] = '\n';
 
-/////
 	parse_file(&line,&line_size,5, 6);//'line: ' 
 
 	line_title= malloc(line_size/2 + 1);
@@ -331,20 +335,40 @@ void WritePayment(int posfd)
 
 	}
 	agree_title[j] = '\n';
-/////
-	write(posfd,commpany_title,title_size/2+1);
-	write(posfd,ticket_title,ticket_size/2+1);
-	write(posfd,testdata.ticket_number,16);
 
+        /* get system time */
+        time(&td);
+        ptr = localtime(&td);
+        
+	write(posfd,commpany_title,title_size/2+1);
+        write(posfd,"\n",1);
+        write(posfd,"\n",1);
+	write(posfd,ticket_title,ticket_size/2+1);
+	write(posfd,rt_detail->out_trade_no,strlen(rt_detail->out_trade_no)+1);
+        write(posfd,"\n",1);
+
+        /* compose date */
 	write(posfd,date_title,date_size/2+1);
+        strftime(pos_time,sizeof(pos_time),"%Y-%m-%d",ptr);
+        write(posfd,pos_time,strlen(pos_time));
+        write(posfd,"\n",1);
+
+        /* compose time */
 	write(posfd,time_title,time_size/2+1);
+        strftime(pos_time,sizeof(pos_time),"%H:%M:%S",ptr);
+        write(posfd,pos_time,strlen(pos_time));
+        write(posfd,"\n",1);
 
 write(posfd,line_title,line_size/2+1);
 
 write(posfd,transaction_title,transaction_size/2+1);
 write(posfd,account_title,account_size/2+1);
 write(posfd,transaction_number_title,transaction_number_size/2+1);
+write(posfd,rt_detail->trade_no,strlen(rt_detail->trade_no)+1);
+write(posfd,"\n",1);
 write(posfd,money_title,money_size/2+1);
+write(posfd,rt_detail->total_fee,strlen(rt_detail->total_fee)+1);
+write(posfd,"\n",1);
 write(posfd,sign_title,sign_size/2+1);
 write(posfd,agree_title,agree_size/2+1);
 	write(posfd,'\n',1);
@@ -376,7 +400,7 @@ write(posfd,agree_title,agree_size/2+1);
 	free(date);
 
 	free(time_title);
-	free(time);
+	free(config_time);
 
 	free(ticket_title);
 	free(ticket_number);

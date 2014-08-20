@@ -139,6 +139,7 @@ int alipay_queryorder(char* precr, int* len, struct payInfo* order_info)
 	char hex_output[16*2 + 1];
 	int di;
 	//*len = sprintf(encrypt,"IMSI=%s&serial_number=%d#%s", IMSI, serial_number, jfkey);
+        /* TODO:using order_info->imsi may causing crash */
 	*len = sprintf(encrypt,"IMSI=%s&serial_number=%d#%s", order_info->imsi, order_info->order_number, order_info->order_key);
 	printf("\nMD5 input:encrypt=%s", encrypt);
 

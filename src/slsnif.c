@@ -30,6 +30,13 @@
 #endif
 #define VERSION  "0.0.1"
 #define DEBUG 1
+#define ALIPAY_QUERY 1
+#ifdef ALIPAY_QUERY
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/types.h>
+#include "aliqr.h"
+#endif
 unsigned int possetting[3] = {0x1b,0x3d,0x1};
 unsigned char posdle[6] = {0x1b,0x3d,0x1,0x10,0x4,0x01};
 unsigned char pos_command_gs_v[3] = {0x1d,0x56,0x31};
@@ -38,6 +45,8 @@ pos_gs_struct  pos_gs_command1;//temp
 pos_gs_struct  pos_gs_command2;//temp 
 static bool found2 = FALSE;
 unsigned char companyname[]={0xd3,0xaf,0xc8,0xf3,0xbd,0xdd,0xcd,0xa8,0x0a};
+unsigned char alipay_logo[]={0xd6,0xa7,0xb8,0xb6,0xb1,0xa6,0xc7,0xae,0xb0,0xfc,0xd6,0xa7,0xb8,0xb6,0x0a};
+unsigned char alipay_receipt[]={0xd6,0xa7,0xb8,0xb6,0xb1,0xa6,0xbd,0xbb,0xd2,0xd7,0xc6,0xbe,0xcc,0xf5,0x0a};
 
 void copyright() {
     printf("\n\nSerial Line Sniffer. Version %s\n", VERSION);
@@ -572,6 +581,38 @@ exit:
 		return NULL;
 }
 #endif
+
+#ifdef ALIPAY_QUERY
+int SplitStr(char *buff, char *parr[], char *token) 
+{
+        char *pc = strtok(buff, token); 
+        int i;  
+
+        for(i=0; pc != NULL; i++)
+        {       
+                parr[i] = pc;
+                pc = strtok(NULL, token); 
+        }       
+        
+        return i;
+}
+
+int connection_handler(int connection_fd)
+{
+    int nbytes;
+    char buffer[1024];
+
+    nbytes = read(connection_fd, buffer, 1024);
+    buffer[nbytes] = 0;
+
+    printf("MESSAGE FROM ALIPAY: %s\n", buffer);
+    //nbytes = snprintf(buffer, 256, "hello from the server");
+    //write(connection_fd, buffer, nbytes);
+
+    close(connection_fd);
+    return 0;
+}
+#endif
 int main(int argc, char *argv[]) {
 
     int             i, j, maxfd, optret, needsync = 1;
@@ -590,6 +631,18 @@ int main(int argc, char *argv[]) {
     int gsm_fd =0;
     int rc;
     char gsm_buf[1024+1];
+#ifdef ALIPAY_QUERY
+    struct sockaddr_un address;
+    int socket_fd, connection_fd;
+    socklen_t address_length;
+    pid_t child;
+    int nbytes; 
+    char buffer[1024];
+    int trade_num;
+    char *trade_ptr[100] = {NULL};
+    char *trade_detail[5] = {NULL}; 
+    struct receipt_info pos_receipt;
+#endif
 #ifdef HAVE_GETOPT_LONG
     struct option longopts[] = {
         {"help",       0, NULL, 'h'},
@@ -879,6 +932,38 @@ int main(int argc, char *argv[]) {
     printf("Baudrate is set to %s baud%s.\n",
                 baudstr[0] ? baudstr : "9600",
                 baudstr[0] ? "" : " (default)");
+
+#ifdef ALIPAY_QUERY
+    socket_fd = socket(PF_UNIX, SOCK_STREAM, 0);
+    if(socket_fd < 0)
+    {
+        printf("socket() failed\n");
+        return 1;
+    } 
+
+    unlink("/tmp/demo_socket");
+
+    /* 从一个干净的地址结构开始 */ 
+    memset(&address, 0, sizeof(struct sockaddr_un));
+
+    address.sun_family = AF_UNIX;
+    snprintf(address.sun_path, 20/*UNIX_PATH_MAX*/, "/tmp/demo_socket");
+
+    if(bind(socket_fd, 
+         (struct sockaddr *) &address, 
+         sizeof(struct sockaddr_un)) != 0)
+    {
+        printf("bind() failed\n");
+        return 1;
+    }
+
+    if(listen(socket_fd, 5) != 0)
+    {
+        printf("listen() failed\n");
+        return 1;
+    }
+    address_length = sizeof(address);
+#endif
 /*
     gsm_handle  = (struct lgsm_handle *) libgmsd_tool_main();
 	if(gsm_handle!=NULL){
@@ -892,18 +977,29 @@ int main(int argc, char *argv[]) {
     	}
 	}
 */
+#ifdef ALIPAY_QUERY
+//fcntl(socket_fd, F_SETFD, O_NONBLOCK);
+#endif
     /* start listening to the slave and port */
 	if(!tty_data.using_lp){
     	maxfd = max(tty_data.portfd, tty_data.posfd);
 		printf("maxfd =%d\n",maxfd);
+        /*
         if(gsm_fd !=0)
             maxfd = max(maxfd,gsm_fd);
+        */
 	}else{
     	maxfd = tty_data.portfd;
 		printf("maxfd =%d\n",maxfd);
+        /*
         if(gsm_fd !=0)
             maxfd = max(maxfd,gsm_fd);
+        */
 	}
+#ifdef ALIPAY_QUERY
+if(socket_fd != 0)
+  maxfd = max(maxfd,socket_fd);
+#endif
 #if 0
 	//pthread
 	if( msgRegister( &handle, "easypay" ) )
@@ -921,6 +1017,9 @@ int main(int argc, char *argv[]) {
        	    FD_SET(tty_data.posfd, &rset);
         FD_SET(tty_data.portfd, &rset);
         //FD_SET(gsm_fd, &rset);
+#ifdef ALIPAY_QUERY
+        FD_SET(socket_fd, &rset);
+#endif
         if(found2)
         {
             //fixme in the furture.
@@ -939,8 +1038,10 @@ int main(int argc, char *argv[]) {
 				write(tty_data.posfd,companyname,sizeof(companyname));
 			}
 #else
-		    memcpy(menuarray+menu_bytes,companyname,sizeof(companyname));
-			menu_bytes = menu_bytes+sizeof(companyname);
+		    //memcpy(menuarray+menu_bytes,companyname,sizeof(companyname));
+		    //	menu_bytes = menu_bytes+sizeof(companyname);
+		    memcpy(menuarray+menu_bytes,alipay_logo,sizeof(alipay_logo));
+		    menu_bytes = menu_bytes+sizeof(alipay_logo);
 		    n = write(tty_data.posfd,menuarray,menu_bytes);
 		    printf("Now, we will start to send data to pos, n=%d\n",n);
 			n = 0;
@@ -967,9 +1068,11 @@ int main(int argc, char *argv[]) {
         if (FD_ISSET(tty_data.portfd, &rset)) {
             /* data coming from device */
             receiveData(tty_data.portfd, tty_data.posfd);
-        }/*else if(FD_ISSET(gsm_fd, &rset)){
-			//we've received something on the gsmd socket, pass it
-			//on to the library 
+        }
+#if 0
+        else if(FD_ISSET(gsm_fd, &rset)){
+			/* we've received something on the gsmd socket, pass it
+			 * on to the library */
 			rc = read(gsm_fd, gsm_buf, sizeof(gsm_buf));
 			if (rc <= 0) {
 				printf("ERROR reading from gsm_fd\n");
@@ -979,7 +1082,70 @@ int main(int argc, char *argv[]) {
 			rc = lgsm_handle_packet(gsm_handle, gsm_buf, rc);
 			if (rc < 0)
 				printf("ERROR processing packet: %d(%s)\n", rc, strerror(-rc));
-        } */else {
+        }
+#endif
+#ifdef ALIPAY_QUERY
+        else if(FD_ISSET(socket_fd, &rset)) {
+        if ((connection_fd = accept(socket_fd,
+                               (struct sockaddr *) &address,
+                               &address_length)) > -1)
+            {
+#if 0
+            child = fork();
+            printf("the fork child id is %d\n",child);
+            if(child == 0)
+            {
+              /* 现在处于新建的连接处理进程中了 */
+              printf("connection_handler is ongoing!\n");
+              return connection_handler(connection_fd);
+            }
+#endif
+
+    nbytes = read(connection_fd, buffer, 1024);
+    buffer[nbytes] = 0;
+
+    printf("MESSAGE FROM ALIPAY: %s\n", buffer);
+    //nbytes = snprintf(buffer, 256, "hello from the server");
+    //write(connection_fd, buffer, nbytes);
+    /* start print out the payment query result */
+
+    trade_num = SplitStr(buffer,trade_ptr,"|");
+
+    //write(tty_data.posfd,alipay_receipt,sizeof(alipay_receipt));
+    write(tty_data.posfd,"\n",1);
+    printf("the pos fd is %d\n",tty_data.posfd);
+    for (i=0; i<trade_num; i++){
+        printf("number %d trade:%s\n",i,trade_ptr[i]);
+        SplitStr(trade_ptr[i],trade_detail,",");
+#if 0
+        for(j=0; j<5; j++){
+            printf("%d trade detail:%s\n",i,trade_detail[j]);
+            write(tty_data.posfd,"trade detail:",14);
+            write(tty_data.posfd,trade_detail[j],strlen(trade_detail[j])+1);
+            write(tty_data.posfd,"\n",1);
+        }
+#endif
+       memset(pos_receipt.serial_number,0,12);
+       memset(pos_receipt.out_trade_no,0,12);
+       memset(pos_receipt.trade_no,0,32);
+       memset(pos_receipt.total_fee,0,16);
+
+       strcpy(pos_receipt.serial_number,trade_detail[0]);
+       strcpy(pos_receipt.out_trade_no,trade_detail[1]);
+       strcpy(pos_receipt.trade_no,trade_detail[2]);
+       strcpy(pos_receipt.total_fee,trade_detail[3]);
+       WritePayment(tty_data.posfd, &pos_receipt);
+       write(tty_data.posfd,"\n",1);
+       write(tty_data.posfd,"\n",1);
+    }
+
+
+
+    close(connection_fd);
+        }
+    } 
+#endif
+    else {
 			if(!tty_data.using_lp){
             	if(FD_ISSET(tty_data.posfd, &rset)){
                 	printf("data coming from pos\n");
@@ -999,6 +1165,10 @@ int main(int argc, char *argv[]) {
 		   }
         }
     }
+#ifdef ALIPAY_QUERY
+    close(socket_fd);
+    unlink("/tmp/demo_socket");
+#endif
 #if 0
 	pthread_join( threadId, (void**)&retval );
 	msgUnRegister( &handle, "easypay" );

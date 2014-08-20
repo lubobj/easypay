@@ -25,14 +25,6 @@ char qr_string[1024];
 char time_mark[32];
 };
 
-struct receipt_info {
-char serial_number[12];
-char out_trade_no[12];
-char trade_no[32];
-char trade_status[16];
-char total_fee[16];
-};
-
 /* single query parameters for multi payment results */
 struct queryInfo {
     char imsi[16+1];

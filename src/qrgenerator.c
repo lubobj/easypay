@@ -28,6 +28,9 @@
 #include <stdlib.h>
 #include <wchar.h>
 
+#include <unistd.h>
+#include <signal.h>
+
 #include "qrencode.h"
 #include "aliqr.h"
 //	-------------------------------------------------------
@@ -89,7 +92,8 @@ typedef struct
 
 unsigned char *pBmpBuff;
 unsigned char* pData = NULL;
-
+char qrQueryResult[16] = {0};
+struct payInfo qrpay_info;
 //	-------------------------------------------------------
 //	Main
 //	-------------------------------------------------------
@@ -111,15 +115,35 @@ int i,j,k;
 unsigned char cutCommand[]= {0x1d,0x56,0x31,0x1d,0x72,0x01};
 unsigned char escd[]= {0x1b,0x64,0x05};
 unsigned char chinesecmd[]={0x1c,0x26};
-unsigned char companyname[]={0xd3,0xae,0xc8,0xf3,0xbd,0xdd,0xcd,0xa7};
+unsigned char companyname[]={0xd3,0xaf,0xc8,0xf3,0xbd,0xdd,0xcd,0xa8,0x0a};
 FILE* fd;
 int logo_bmpWidth,logo_bmpHeight;
 
-struct payInfo qrpay_info;
+//struct payInfo qrpay_info;
+#if 0
+qrpay_info.imsi = (char *)malloc(17*sizeof(char));
+memset(qrpay_info.imsi,0,17*sizeof(char));
+strcpy(qrpay_info.imsi,"123456789012345");
+qrpay_info.order_key = (char *)malloc(33*sizeof(char));
+memset(qrpay_info.order_key,0,33*sizeof(char));
+strcpy(qrpay_info.order_key,"11");
+qrpay_info.order_number = 22;
+//strcpy(qrpay_info.total_fee,price); 
+qrpay_info.total_fee = (char *)malloc(16*sizeof(char));
+memset(qrpay_info.total_fee,0,16*sizeof(char));
+strcpy(qrpay_info.total_fee,"0.01"); 
+qrpay_info.order_subject = (char *)malloc(129*sizeof(char));
+memset(qrpay_info.order_subject,0,129*sizeof(char));
+strcpy(qrpay_info.order_subject,"ccc");
+qrpay_info.order_time = (char *)malloc(20*sizeof(char));
+memset(qrpay_info.order_time,0,20*sizeof(char));
+strcpy(qrpay_info.order_time,"2014-08-0514:15:30");
+#endif
 strcpy(qrpay_info.imsi,"123456789012345");
 strcpy(qrpay_info.order_key,"11");
-qrpay_info.order_number = 7;
+qrpay_info.order_number = 13;
 strcpy(qrpay_info.total_fee,price); 
+//strcpy(qrpay_info.total_fee,"0.01");
 strcpy(qrpay_info.order_subject,"ccc");
 strcpy(qrpay_info.order_time,"2014-08-0514:15:30");
 
@@ -146,7 +170,7 @@ strcpy(qrpay_info.order_time,"2014-08-0514:15:30");
  * @throw ERANGE input data is too large.
  */
 /* print the qr code from alipay */
-alipay_main(szQrcodeString, &qrpay_info);
+alipay_main(szQrcodeString, &qrpay_info, ALI_PRECREATE_ORDER);
 szSourceString = szQrcodeString;
 
 		// Compute QRCode
@@ -309,6 +333,17 @@ szSourceString = szQrcodeString;
                  } // data
                  printf("bmp print end\n");
 #if 1
+                         data[0] = 0x1c;
+                         data[1] = 0x26;
+                         write(out,data,2);   //set to chinese print
+
+                         write(out,companyname,sizeof(companyname));
+#if 0
+                         data[0] = 0x1c;
+                         data[1] = 0x2e;
+                         write(out,data,2);   //escape from chinese print
+#endif
+
                          data[0] = 0x1b;
                          data[1] = 0x33;
                          data[2] = 0x33;    // Clear to Zero.
