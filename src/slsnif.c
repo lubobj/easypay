@@ -24,8 +24,10 @@
 #include "slsnif.h"
 #include "qrgenerator.h"
 #include <stdbool.h>
+#if 0
 #include <pthread.h>
 #include "msglib.h"
+#endif
 #define VERSION  "0.0.1"
 #define DEBUG 1
 unsigned int possetting[3] = {0x1b,0x3d,0x1};
@@ -540,7 +542,7 @@ static bool get_price(int menubytes, char* price)
         return price_found;
       
 }
-
+#if 0
 char prompt[1024];
 void* recvThread( void *param )
 {
@@ -569,6 +571,7 @@ exit:
 		msgTrace(handle, "recvThread exit.\n");
 		return NULL;
 }
+#endif
 int main(int argc, char *argv[]) {
 
     int             i, j, maxfd, optret, needsync = 1;
@@ -604,10 +607,11 @@ int main(int argc, char *argv[]) {
         {NULL,         0, NULL,   0}
     };
 #endif
+#if 0
 	MsgHandle handle;
 	pthread_t threadId;
 	int retval;
-
+#endif
     /* don't lose last chunk of data when output is non-interactive */
     setvbuf(stdout,NULL,_IONBF,0);
     setvbuf(stderr,NULL,_IONBF,0);
@@ -900,6 +904,7 @@ int main(int argc, char *argv[]) {
         if(gsm_fd !=0)
             maxfd = max(maxfd,gsm_fd);
 	}
+#if 0
 	//pthread
 	if( msgRegister( &handle, "easypay" ) )
 	{
@@ -907,6 +912,7 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 	pthread_create( &threadId, NULL, recvThread, &handle );
+#endif
 
 	
     while (TRUE) {
@@ -993,7 +999,9 @@ int main(int argc, char *argv[]) {
 		   }
         }
     }
+#if 0
 	pthread_join( threadId, (void**)&retval );
 	msgUnRegister( &handle, "easypay" );
+#endif
     return 1;
 }
