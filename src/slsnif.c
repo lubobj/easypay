@@ -490,6 +490,7 @@ static bool get_price(int menubytes, char* price)
 {
         int i = 0;
         int j = 0;
+        int k = 0;
         bool price_found = false;
         unsigned char count[256];
         char* account = NULL;
@@ -535,9 +536,13 @@ static bool get_price(int menubytes, char* price)
                if(i>0)
                {
                   account = malloc(i+3+1);
-                  for(j=0;j<i+3;j++)
-                      sprintf( account+j, "%c", count[j] );
-                  account[i+3] ='\0';
+                  for(j=0,k=0;j<i+3;j++){
+                      if(count[j] != 32){
+                      sprintf( account+k, "%c", count[j] );
+                      k++;
+                      }
+                  }
+                  account[k] ='\0';
                   
                   printf("account=%s\n",account);
                   //atof cannot work normally, use atoi

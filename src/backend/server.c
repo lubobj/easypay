@@ -22,7 +22,7 @@ void payment_alarm_handler(int sig) {
     struct qr_result payquery_result;
     int nbytes;
     int socket_fd;
-    strcpy(qrpay_info.imsi,"123456789012345");
+    strcpy(qrpay_info.imsi,"123456789012346");
     memset(payquery_result.qr_string,0,1024);
     memset(payquery_result.time_mark,0,32);
 #if 1

@@ -94,6 +94,7 @@ unsigned char *pBmpBuff;
 unsigned char* pData = NULL;
 char qrQueryResult[16] = {0};
 struct payInfo qrpay_info;
+static int query_number = 20;
 //	-------------------------------------------------------
 //	Main
 //	-------------------------------------------------------
@@ -139,9 +140,10 @@ qrpay_info.order_time = (char *)malloc(20*sizeof(char));
 memset(qrpay_info.order_time,0,20*sizeof(char));
 strcpy(qrpay_info.order_time,"2014-08-0514:15:30");
 #endif
-strcpy(qrpay_info.imsi,"123456789012345");
+strcpy(qrpay_info.imsi,"123456789012346");
 strcpy(qrpay_info.order_key,"11");
-qrpay_info.order_number = 13;
+query_number = query_number + 1;
+qrpay_info.order_number = query_number;
 strcpy(qrpay_info.total_fee,price); 
 //strcpy(qrpay_info.total_fee,"0.01");
 strcpy(qrpay_info.order_subject,"ccc");

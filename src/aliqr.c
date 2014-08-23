@@ -5,8 +5,8 @@
 #include <string.h>
 
 #if 0  //namie_liu's PID and Key alipay seller apk not work for face pay
-static char partner[17]= "2088002374756150";
-static char* key = "8mrd6czean9ixf3aff7iuxi75nm4h604";
+static char partner[17]= "2088511979813624";
+static char* key = "gzyypc49bgtwqu3sykph20lc2fn3jttt";
 #else //PID and Key of alipay-test20@alipay.com 
 static char partner[17]= "2088201565141845";
 static char* key = "ai1ce2jkwkmd3bddy97z0xnz3lxqk731";
