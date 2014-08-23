@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <signal.h>
 #include "aliqr.h"
-#include "payinfo.h"
 
 
 struct queryInfo qrpay_info;
