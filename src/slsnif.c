@@ -31,6 +31,23 @@
 #define VERSION  "0.0.1"
 #define DEBUG 1
 #define ALIPAY_QUERY 1
+
+#define QUERY_IMSI 1
+
+#ifdef QUERY_IMSI
+#include "shmctl.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <signal.h>
+#include <pthread.h>
+#endif
+
+
 #ifdef ALIPAY_QUERY
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -556,6 +573,159 @@ static bool get_price(int menubytes, char* price)
         return price_found;
       
 }
+#ifdef QUERY_IMSI
+
+
+static int set_baudrate(int fd, int baudrate, int hwflow)
+{
+    int i;
+    u_int32_t bd = 0;
+    struct termios ti;
+
+    bd = B115200;
+
+    i = tcgetattr(fd, &ti);
+    if (i < 0) {
+                return -errno;
+        }
+
+    i = cfsetispeed(&ti, B0);
+    if (i < 0) {
+                return -errno;
+        }
+
+    i = cfsetospeed(&ti, bd);
+    if (i < 0) {
+                return -errno;
+        }
+    printf("before hwflow, ti_c_cflag =%x\n",ti.c_cflag);
+    if (hwflow)
+        ti.c_cflag |= CRTSCTS;
+    else
+        ti.c_cflag &= ~CRTSCTS;
+    printf("CRTSCTS=%x\n",CRTSCTS);
+    printf("after hwflow, ti_c_cflag =%x\n",ti.c_cflag);
+
+
+    return tcsetattr(fd, 0, &ti) ? -errno : 0;
+}
+void atcmd_drain(int fd)
+{
+
+    int rc;
+    struct termios t;
+    rc = tcflush(fd, TCIOFLUSH);
+    rc = tcgetattr(fd, &t);
+    printf("c_iflag = 0x%08x, c_oflag = 0x%08x, c_cflag = 0x%08x, c_lflag = 0x%08x\n",
+        t.c_iflag, t.c_oflag, t.c_cflag, t.c_lflag);
+    t.c_iflag = t.c_oflag = 0;
+     t.c_iflag |= (IXON|IXOFF);
+     printf("new c_iflag=0x%08x,c_oflag=0x%08x\n",t.c_iflag,t.c_oflag);
+     printf("set ixon off\n");
+     //t.c_cflag = CS8 | CREAD | CLOCAL | B115200;
+     //printf("new c_cflag =0x%08x\n",t.c_cflag);
+    cfmakeraw(&t);
+    rc = tcsetattr(fd, TCSANOW, &t);
+}
+void* recvImsiThread( void *param )
+{
+		int gsm_fd = *(int *)param;
+		int i = 0;
+		int             maxfd;
+		fd_set          read_set;
+		int rc = 0;
+		int offset = 0;
+		char at_buf[1024+1] = { '\0'};
+		const char* split ="\r\n";
+		char* p;
+		char at_name[7];
+		char imsi_number[15];
+		char at_response[2];
+
+		maxfd = gsm_fd;
+		while (TRUE) {
+				FD_ZERO(&read_set);
+				FD_SET(gsm_fd, &read_set);
+				if (select(maxfd + 1, &read_set, NULL, NULL, NULL) < 0) {
+				/* don't bail out if error was caused by interrupt */
+						if (errno != EINTR) {
+							perror(SELFAIL);
+							return;
+						} else {
+						continue;
+						}
+				}
+				if (FD_ISSET(gsm_fd, &read_set)){
+				/* we've received something on the gsmd socket, parse it*/
+
+				rc = read(gsm_fd, at_buf+offset, 1024);
+				offset = offset + rc;
+				if (rc <= 0) {
+					printf("ERROR reading from gsm_fd\n");
+					continue;
+					//break;
+				}
+				//printf("gsm rc=%d\n",rc);
+				//printf("at buffer is %s\n",at_buf);
+				//printf("offset = %d\n",offset);
+				//for(i=0;i<offset;i++)
+					//printf("%x",at_buf[i]);
+				//printf("\n");
+				/*why 33, "AT+CIMI\r\r\n460040004600749\r\n\r\nOK\r\n"*/
+				if(offset == 33)
+				{
+					i = 0;
+					p = strtok(at_buf,split);
+					while(p!=NULL){
+						printf("%s\n",p);
+						if(i == 0)
+							memcpy(at_name,p,7);
+						if(i == 1)
+							memcpy(imsi_number, p, 15);
+						if(i == 2)
+							memcpy(at_response, p, 2);
+						i++;
+						p = strtok(NULL,split);
+					}
+					printf("at_name=%s\n",at_name);
+					printf("imsi_number=%s\n",imsi_number);
+					printf("at_response=%s\n",at_response);
+					if(strncmp(at_name,"AT+CIMI",7) == 0)
+					{
+						if(strncmp(at_response,"OK",2) == 0)
+						{
+							printf("cimi ok\n");
+							setImsi(1);
+							setImsiValue(imsi_number,15);
+							break;
+						}
+					}
+				}
+			}
+		}
+		printf("exit this thread\n");
+		return NULL;
+}
+int   init_modem()
+{
+	int gsm_fd = 0;
+	int bps = 115200;
+	int hwflow = 0;
+
+	gsm_fd = open("/dev/s3c2410_serial0", O_RDWR|O_NDELAY|O_NOCTTY);
+	if (gsm_fd < 0) {
+	         fprintf(stderr, "can't open device `%s': %s\n", "/dev/s3c2410_serial0", strerror(errno));
+	         return 0;
+    }
+    if (set_baudrate(gsm_fd, bps , hwflow) < 0) {
+			fprintf(stderr, "can't set baudrate\n");
+			return 0;
+    }
+	fcntl(gsm_fd, F_SETFD, O_NONBLOCK);
+    printf("gsm_fd = %d\n",gsm_fd);
+	return gsm_fd;
+}
+#endif
 #if 0
 char prompt[1024];
 void* recvThread( void *param )
@@ -633,7 +803,7 @@ int main(int argc, char *argv[]) {
     char price[16]= {0};
 
     //struct lgsm_handle *gsm_handle =NULL;
-    int gsm_fd =0;
+    //int gsm_fd =0;
     int rc;
     char gsm_buf[1024+1];
 #ifdef ALIPAY_QUERY
@@ -669,6 +839,12 @@ int main(int argc, char *argv[]) {
 	MsgHandle handle;
 	pthread_t threadId;
 	int retval;
+#endif
+#ifdef QUERY_IMSI
+	pthread_t queryimsi_threadId;
+	int retval;
+	int gsm_fd;
+	char AT_CMD[] = "AT+CIMI\r"; //'\r' is neccessary. '\r\n' cannot work
 #endif
     /* don't lose last chunk of data when output is non-interactive */
     setvbuf(stdout,NULL,_IONBF,0);
@@ -1014,8 +1190,36 @@ if(socket_fd != 0)
 	}
 	pthread_create( &threadId, NULL, recvThread, &handle );
 #endif
-
-	
+#ifdef QUERY_IMSI
+	setImsi(0);//clear share memory flag
+	gsm_fd = init_modem();
+	pthread_create( &queryimsi_threadId, NULL, recvImsiThread, &gsm_fd );
+	printf("in main process, gsm_fd = %d\n",gsm_fd);
+	atcmd_drain(gsm_fd);
+	sleep(1); //wait thread is ok
+	printf("write at to gsm\n");
+	printf("siezof at_cmd=%d\n",sizeof(AT_CMD));
+	//get IMSI
+	write(gsm_fd,AT_CMD,sizeof(AT_CMD));
+	//wait at command is ok
+	while(1)
+	{
+		sleep(2);//wait 2 seconds.
+		if(getImsi() == 1)
+		{
+			printf("get imsi \n");
+			break;
+		}
+		else
+		{
+			//printf("send at command again\n");
+			//write(gsm_fd,AT_CMD,sizeof(AT_CMD));
+		}
+	}
+	close(gsm_fd);
+//    pthread_join(queryimsi_threadId,(void**)&retval);
+	printf("continue to execute main process\n");
+#endif
     while (TRUE) {
         FD_ZERO(&rset);
 	    if(tty_data.using_lp)
@@ -1177,6 +1381,9 @@ if(socket_fd != 0)
 #if 0
 	pthread_join( threadId, (void**)&retval );
 	msgUnRegister( &handle, "easypay" );
+#endif
+#ifdef QUERY_IMSI
+	pthread_join(queryimsi_threadId,(void**)&retval);
 #endif
     return 1;
 }
