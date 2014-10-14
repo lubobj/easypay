@@ -131,6 +131,10 @@ void WritePayment(int posfd, struct receipt_info *rt_detail)
 	unsigned char* commpany_title = NULL;
 	int title_size ;
 
+        char* serial_number = NULL;
+        unsigned char* serial_title = NULL;
+        int serial_size;
+
 	char* ticket_number = NULL;
 	unsigned char* ticket_title = NULL;
 	int ticket_size ;
@@ -174,7 +178,7 @@ void WritePayment(int posfd, struct receipt_info *rt_detail)
 	int i,j = 0;
 	unsigned long high, low;
 	unsigned char chinesecmd[]={0x1c,0x26};
-	unsigned char cutCommand[]= {0x1d,0x56,0x31,0x1d,0x72,0x01};
+	unsigned char cutCommand[]= {0x1d,0x56,0x42,0x80,0x1d,0x72,0x01};
 	unsigned char cmd1[]={0xa3,0xb1,0x0a};
         struct pos_statement_of_account testdata;
 
@@ -205,7 +209,20 @@ void WritePayment(int posfd, struct receipt_info *rt_detail)
 	//printf("j=%d\n",j);
 	commpany_title[j] = '\n';
 
-	parse_file(&ticket_number,&ticket_size,2, 15);//'ticket_number: ' 
+	parse_file(&serial_number,&serial_size,2, 15);//'serial_number: ' 
+	serial_title= malloc(serial_size/2 + 1);
+ 	i=j=0;
+	for(i=0;i< serial_size;)
+	{
+		serial_title[j] = ToHex(serial_number[i]) << 4 | ToHex(serial_number[i+1]);
+		//printf("%02x\n",serial_title[j]);
+		j++;
+		i = i+2;
+
+	}
+	serial_title[j] = '\n';
+
+	parse_file(&ticket_number,&ticket_size,3, 15);//'ticket_number: ' 
 	//get_ticket_number(&ticket_number,&ticket_size);
 	ticket_title= malloc(ticket_size/2 + 1);
  	i=j=0;
@@ -220,7 +237,7 @@ void WritePayment(int posfd, struct receipt_info *rt_detail)
 	ticket_title[j] = '\n';
 
 
-	parse_file(&date,&date_size,3, 6);//'date: ' 
+	parse_file(&date,&date_size,4, 6);//'date: ' 
 	date_title= malloc(date_size/2 + 1);
  	i=j=0;
 	for(i=0;i< date_size;)
@@ -232,7 +249,7 @@ void WritePayment(int posfd, struct receipt_info *rt_detail)
 	}
 	date_title[j] = '\n';
 
-	parse_file(&config_time,&time_size,4, 6);//'time: ' 
+	parse_file(&config_time,&time_size,5, 6);//'time: ' 
 
 	time_title= malloc(time_size/2 + 1);
  	i=j=0;
@@ -245,7 +262,7 @@ void WritePayment(int posfd, struct receipt_info *rt_detail)
 	}
 	time_title[j] = '\n';
 
-	parse_file(&line,&line_size,5, 6);//'line: ' 
+	parse_file(&line,&line_size,6, 6);//'line: ' 
 
 	line_title= malloc(line_size/2 + 1);
  	i=j=0;
@@ -258,7 +275,7 @@ void WritePayment(int posfd, struct receipt_info *rt_detail)
 	}
 	line_title[j] = '\n';
 
-	parse_file(&transaction,&transaction_size,6, 13);//'transaction: ' 
+	parse_file(&transaction,&transaction_size,7, 13);//'transaction: ' 
 
 	transaction_title= malloc(transaction_size/2 + 1);
  	i=j=0;
@@ -271,7 +288,7 @@ void WritePayment(int posfd, struct receipt_info *rt_detail)
 	}
 	transaction_title[j] = '\n';
 
-	parse_file(&account,&account_size,7, 9);//'account: ' 
+	parse_file(&account,&account_size,8, 9);//'account: ' 
 
 	account_title= malloc(account_size/2 + 1);
  	i=j=0;
@@ -284,7 +301,7 @@ void WritePayment(int posfd, struct receipt_info *rt_detail)
 	}
 	account_title[j] = '\n';
 
-	parse_file(&transaction_number,&transaction_number_size,8, 20);//'transaction_number: ' 
+	parse_file(&transaction_number,&transaction_number_size,9, 20);//'transaction_number: ' 
 
 	transaction_number_title= malloc(transaction_number_size/2 + 1);
  	i=j=0;
@@ -297,7 +314,7 @@ void WritePayment(int posfd, struct receipt_info *rt_detail)
 	}
 	transaction_number_title[j] = '\n';
 
-	parse_file(&money,&money_size,9, 7);//'money: ' 
+	parse_file(&money,&money_size,10, 7);//'money: ' 
 
 	money_title= malloc(money_size/2 + 1);
  	i=j=0;
@@ -310,7 +327,7 @@ void WritePayment(int posfd, struct receipt_info *rt_detail)
 	}
 	money_title[j] = '\n';
 
-	parse_file(&sign,&sign_size,10, 6);//'sign: ' 
+	parse_file(&sign,&sign_size,11, 6);//'sign: ' 
 
 	sign_title= malloc(sign_size/2 + 1);
  	i=j=0;
@@ -323,7 +340,7 @@ void WritePayment(int posfd, struct receipt_info *rt_detail)
 	}
 	sign_title[j] = '\n';
 
-	parse_file(&agree,&agree_size,11, 7);//'agree: ' 
+	parse_file(&agree,&agree_size,12, 7);//'agree: ' 
 
 	agree_title= malloc(agree_size/2 + 1);
  	i=j=0;
@@ -342,6 +359,9 @@ void WritePayment(int posfd, struct receipt_info *rt_detail)
         
 	write(posfd,commpany_title,title_size/2+1);
         write(posfd,"\n",1);
+        write(posfd,"\n",1);
+	write(posfd,serial_title,serial_size/2+1);
+	write(posfd,rt_detail->serial_number,strlen(rt_detail->serial_number)+1);
         write(posfd,"\n",1);
 	write(posfd,ticket_title,ticket_size/2+1);
 	write(posfd,rt_detail->out_trade_no,strlen(rt_detail->out_trade_no)+1);
@@ -404,6 +424,9 @@ write(posfd,agree_title,agree_size/2+1);
 
 	free(ticket_title);
 	free(ticket_number);
+
+        free(serial_title);
+        free(serial_number);
 
 	free(commpany_title);
 	free(title);

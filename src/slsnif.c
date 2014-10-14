@@ -162,7 +162,7 @@ void receiveData(int in, int out) {
                 printf("> %x\n",buffer[i]);
             for(i=0;i<n;i++)
             {
-                if(buffer[i] == 0x1d && (buffer[i+1] ==0x56 ) )
+                if(buffer[i] == 0x1d && (buffer[i+1] ==0x56||buffer[i+1] ==0x72 ) )
                 {
                    printf("gs command find\n");
                    found = true;
@@ -499,12 +499,21 @@ static bool get_price(int menubytes, char* price)
         {
 			//??
            if((menuarray[i] == 0xd3)&&(menuarray[i+1] == 0xa6) && (menuarray[i+2] ==0xca) &&(menuarray[i+3] == 0xd5))
+           //if((menuarray[i] == 0xd3)&&(menuarray[i+1] == 0xa6) && (menuarray[i+2] ==0xb8) &&(menuarray[i+3] == 0xb6))
+           //if((menuarray[i] == 0xba)&&(menuarray[i+1] == 0xcf) && (menuarray[i+2] ==0xbc) &&(menuarray[i+3] == 0xc6))
            {
                 printf("find the price\n");
                 price_found = true;
 				index = i;
                 break;
            }
+           /*if((menuarray[i] == 0xba)&&(menuarray[i+1] == 0xcf) && (menuarray[i+2] ==0xbc) &&(menuarray[i+3] == 0xc6))
+           {
+                printf("find the heji\n");
+                price_found = true;
+		index = i;
+                break;
+           }*/
 		   //??
            if((menuarray[i] == 0xbd)&&(menuarray[i+1] == 0xf0) && (menuarray[i+2] ==0xb6) &&(menuarray[i+3] == 0xee))
 		   {
@@ -1130,8 +1139,8 @@ if(socket_fd != 0)
             write(tty_data.posfd,"\n",1);
         }
 #endif
-       memset(pos_receipt.serial_number,0,12);
-       memset(pos_receipt.out_trade_no,0,12);
+       memset(pos_receipt.serial_number,0,24);
+       memset(pos_receipt.out_trade_no,0,16);
        memset(pos_receipt.trade_no,0,32);
        memset(pos_receipt.total_fee,0,16);
 

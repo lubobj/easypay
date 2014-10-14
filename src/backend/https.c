@@ -25,6 +25,8 @@
 #include "xmlparser.h"
 extern char stqrcode[];
 extern char timemark[];
+extern char *str_timemark;
+extern char time_mark[32];
 
 int alipay_main(struct qr_result *query_result, struct payInfo* order_info, int order_type)
 {
@@ -100,9 +102,12 @@ int alipay_main(struct qr_result *query_result, struct payInfo* order_info, int 
             printf("                     --------------\n");
             printf("                     %lu tags total\n", state.tags);
             //memcpy(qr_result,stqrcode,strlen(stqrcode));
+            if(stqrcode[0] != '\0' && time_mark[0] != '\0') {
             memcpy(query_result->qr_string,stqrcode,strlen(stqrcode));
-            memcpy(query_result->time_mark,timemark,strlen(timemark));
             printf("the qr_result is %s\n, the stqrcode is %s\n",query_result->qr_string,stqrcode);
+            }
+            memset(stqrcode,0,QRLEN);
+            memcpy(query_result->time_mark,timemark,strlen(timemark));
         }
 
     }

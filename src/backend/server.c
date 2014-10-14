@@ -10,9 +10,9 @@
 #include "aliqr.h"
 
 
-struct queryInfo qrpay_info;
+struct payInfo qrpay_info;
 //char qrQueryResult[1024] = {0};
-static char time_mark[32] = {0};
+char time_mark[32] = {0};
 
 
 /* timer to get alipay payment response -- sample code */ 
@@ -21,14 +21,14 @@ void payment_alarm_handler(int sig) {
     struct qr_result payquery_result;
     int nbytes;
     int socket_fd;
-    strcpy(qrpay_info.imsi,"123456789012346");
-    memset(payquery_result.qr_string,0,1024);
+    //strcpy(qrpay_info.imsi,"460006922139942");
+    memset(payquery_result.qr_string,0,QRLEN);
     memset(payquery_result.time_mark,0,32);
 #if 1
     if (time_mark[0] == '\0'){
        /* time_mark is missing, using random one to require a new one */
        printf("query parameter: time_mark is missing!\n");
-       strcpy(qrpay_info.timemark,"1408001801550");
+       //strcpy(qrpay_info.timemark,"1408001801550");
        //alipay_main(&payquery_result, &qrpay_info);
        alipay_main(&payquery_result, &qrpay_info, ALI_PRECREATE_QUERY);
        strcpy(time_mark, payquery_result.time_mark);
@@ -38,13 +38,14 @@ void payment_alarm_handler(int sig) {
     }
 #endif
     //strcpy(qrpay_info.timemark,"123456789012345");
-    strcpy(qrpay_info.timemark,time_mark);
-    printf("the query timer mark is %s\n",qrpay_info.timemark);
+    //strcpy(qrpay_info.timemark,time_mark);
+    printf("the query timer mark is %s\n",time_mark);
     printf("alarm!\n");
-    memset(payquery_result.qr_string,0,1024);
-    memset(payquery_result.time_mark,0,32);
+    //memset(payquery_result.qr_string,0,1024);
+    //memset(payquery_result.time_mark,0,32);
     //alipay_main(&payquery_result, &qrpay_info);
     alipay_main(&payquery_result, &qrpay_info, ALI_PRECREATE_QUERY);
+    strcpy(time_mark, payquery_result.time_mark);
     if(payquery_result.qr_string[0]){
     struct sockaddr_un address;
     socket_fd = socket(PF_UNIX, SOCK_STREAM, 0);
@@ -111,11 +112,43 @@ int connection_handler(int connection_fd)
 
 int main(void)
 {
+    FILE *fp;
+    int i;
+    char buffer[30] = {0};
+    char pos_imsi[20] = {0};
+    if (pos_imsi[0] == '\0'){
+        /* get imsi from config.tx */
+        fp = fopen("/usr/local/config.txt","r");
+        if(fp == NULL)
+        {
+            printf("couldn't open config.txt\n");
+            return;
+        }
+        if( fgets(buffer, 30, fp) == NULL )
+        {
+            printf("Error reading config\n");
+            fclose(fp);
+            return ;
+        }
+        for (i=0; i<30; i++) {
+            if(buffer[i] == '\n') {
+                buffer[i] = '\0';
+                break;
+            }
+        }
+        fclose(fp);
+        /* copy after IMSI: */
+        strcpy(pos_imsi,&buffer[5]);
+        printf("the pos imsi buffer string is %s\n",pos_imsi);
+    }
+    strcpy(qrpay_info.imsi,pos_imsi);
     /* timer to get alipay payment response -- sample code */ 
     signal(SIGALRM, payment_alarm_handler);
     alarm(10);
 
-    while(1);
+    while(1){
+    sleep(1);
+    } 
     unlink("./demo_socket");
     return 0;
 }

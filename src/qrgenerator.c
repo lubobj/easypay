@@ -33,6 +33,7 @@
 
 #include "qrencode.h"
 #include "aliqr.h"
+#include <time.h>
 //	-------------------------------------------------------
 
 
@@ -94,13 +95,15 @@ unsigned char *pBmpBuff;
 unsigned char* pData = NULL;
 char qrQueryResult[16] = {0};
 struct payInfo qrpay_info;
-static int query_number = 20;
+static unsigned long long query_number = 0;
+char pos_imsi[20] = {0};
 //	-------------------------------------------------------
 //	Main
 //	-------------------------------------------------------
 
 //int _tmain(int argc, _TCHAR* argv[])
 //int main(void)
+void getIMSIconfig();
 int  generator_qrcode_to_bmp(int out, char* price)
 {
 //char*			szSourceString = QRCODE_TEXT;
@@ -119,6 +122,12 @@ unsigned char chinesecmd[]={0x1c,0x26};
 unsigned char companyname[]={0xd3,0xaf,0xc8,0xf3,0xbd,0xdd,0xcd,0xa8,0x0a};
 FILE* fd;
 int logo_bmpWidth,logo_bmpHeight;
+
+struct tm *ptr;
+time_t td;
+char ticket_number[13]={0};
+char client_number[21]={0};
+char serial_number[28]={0};
 
 //struct payInfo qrpay_info;
 #if 0
@@ -140,13 +149,30 @@ qrpay_info.order_time = (char *)malloc(20*sizeof(char));
 memset(qrpay_info.order_time,0,20*sizeof(char));
 strcpy(qrpay_info.order_time,"2014-08-0514:15:30");
 #endif
-strcpy(qrpay_info.imsi,"123456789012346");
+//strcpy(qrpay_info.imsi,"460006922139942");
+getIMSIconfig();
 strcpy(qrpay_info.order_key,"11");
+
+if(query_number == 0) {
+   time(&td);
+   ptr = (struct tm *)localtime(&td);
+   /* start from yymmddhhmm00 */
+   if (ptr->tm_year < 100 || ptr->tm_year > 141)
+   strftime(ticket_number,sizeof(ticket_number),"%m%d%H%M00",ptr);
+   else 
+   strftime(ticket_number,sizeof(ticket_number),"%y%m%d%H%M00",ptr);
+   /* use last 6-bit of IMSI */
+   strncpy(client_number, &(qrpay_info.imsi[9]), 6);
+   strcat(client_number, ticket_number);
+   query_number = (unsigned long long)atoll(client_number);
+}
 query_number = query_number + 1;
 qrpay_info.order_number = query_number;
+sprintf(serial_number,"NO:%lld\n",query_number);
 strcpy(qrpay_info.total_fee,price); 
 //strcpy(qrpay_info.total_fee,"0.01");
-strcpy(qrpay_info.order_subject,"ccc");
+//strcpy(qrpay_info.order_subject,"ccc");
+strcpy(qrpay_info.order_subject,"ALIPAY");
 strcpy(qrpay_info.order_time,"2014-08-0514:15:30");
 
 /*
@@ -340,18 +366,30 @@ szSourceString = szQrcodeString;
                          write(out,data,2);   //set to chinese print
 
                          write(out,companyname,sizeof(companyname));
-#if 0
+
                          data[0] = 0x1c;
                          data[1] = 0x2e;
                          write(out,data,2);   //escape from chinese print
-#endif
+
+                         data[0] = 0x1b;
+                         data[1] = 0x40;
+                         write(out,data,2);
+
+                         data[0] = 0x0a;
+                         write(out,data,1);
+                         write(out,serial_number,28);
 
                          data[0] = 0x1b;
                          data[1] = 0x33;
                          data[2] = 0x33;    // Clear to Zero.
-                   write(out,data,3);
-			 //sleep(1);
-			              
+                         write(out,data,3);
+
+                         data[0] = 0x1b;
+                         data[1] = 0x64;
+                         data[2] = 0x05;
+                         write(out,data,3); // head 5 lines for cut cmd
+
+#if 0
              write(out,"\n",1);
 			 //sleep(1);
                          write(out,"\n",1);
@@ -361,6 +399,7 @@ szSourceString = szQrcodeString;
                          write(out,"\n",1);
 			 //sleep(1);
                          write(out,"\n",1);
+#endif
                    write(out,cutCommand,6);
 #endif
 		free(pRGBData);
@@ -424,4 +463,39 @@ int readBmp(char *bmpName,int *bmpWidth,int *bmpHeight)
 #endif
 		//free(pBmpBuff);
 	    return 0;
+}
+
+void getIMSIconfig()
+{
+    FILE *fp;
+    int i;  
+    char buffer[30];
+    //strcpy(qrpay_info.imsi,"460006922139942");
+    //strcpy(qrpay_info.imsi,"460024104033474");
+    if (pos_imsi[0] == '\0'){
+        /* get imsi from config.tx */
+        fp = fopen("/usr/local/config.txt","r");
+        if(fp == NULL)
+        {       
+            printf("couldn't open config.txt\n");
+            return; 
+        }       
+        if( fgets(buffer, 30, fp) == NULL )
+        {       
+            printf("Error reading config\n");
+            fclose(fp);
+            return ;
+        }       
+        for (i=0; i<30; i++) {
+            if(buffer[i] == '\n') {
+                buffer[i] = '\0';
+                break;
+            }
+        }
+        fclose(fp);
+        /* copy after IMSI: */
+        strcpy(pos_imsi,&buffer[5]);
+        printf("the pos imsi buffer string is %s\n",pos_imsi);
+    }
+    strcpy(qrpay_info.imsi,pos_imsi);
 }
